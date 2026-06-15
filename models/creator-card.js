@@ -15,7 +15,10 @@ const serviceRateSchemaConfig = {
 
 const serviceRatesSchemaConfig = {
   currency: { type: SchemaTypes.String, required: true },
-  rates: { type: [new ModelSchema(serviceRateSchemaConfig, { _id: false })], required: true },
+  rates: {
+    type: [new ModelSchema(serviceRateSchemaConfig, { _id: false }).createDBSchema()],
+    required: true,
+  },
 };
 
 const schemaConfig = {
@@ -24,8 +27,13 @@ const schemaConfig = {
   description: { type: SchemaTypes.String },
   slug: { type: SchemaTypes.String, required: true, unique: true, index: true },
   creator_reference: { type: SchemaTypes.String, required: true, index: true },
-  links: { type: [new ModelSchema(linkSchemaConfig, { _id: false })], default: [] },
-  service_rates: { type: new ModelSchema(serviceRatesSchemaConfig, { _id: false }) },
+  links: {
+    type: [new ModelSchema(linkSchemaConfig, { _id: false }).createDBSchema()],
+    default: [],
+  },
+  service_rates: {
+    type: new ModelSchema(serviceRatesSchemaConfig, { _id: false }).createDBSchema(),
+  },
   status: { type: SchemaTypes.String, required: true },
   access_type: { type: SchemaTypes.String, default: 'public' },
   access_code: { type: SchemaTypes.String },
@@ -34,15 +42,16 @@ const schemaConfig = {
   deleted: { type: SchemaTypes.Number, default: null },
 };
 
-const modelSchema = new ModelSchema(schemaConfig, { collection: modelName });
-
-modelSchema.set('toJSON', {
-  transform: (doc, ret) => {
-    const response = { ...ret };
-    response.id = response._id;
-    delete response._id;
-    delete response.__v;
-    return response;
+const modelSchema = new ModelSchema(schemaConfig, {
+  collection: modelName,
+  toJSON: {
+    transform: (doc, ret) => {
+      const response = { ...ret };
+      response.id = response._id;
+      delete response._id;
+      delete response.__v;
+      return response;
+    },
   },
 });
 
