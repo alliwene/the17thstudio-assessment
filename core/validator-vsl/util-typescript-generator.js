@@ -1,8 +1,8 @@
 const { toKebabCase, writeFileWithDirs } = require('./util-helpers');
 
 function getReferencedTypeFromAST(type, AST) {
-  let t = type.replace(/[$#]/g, '');
-  let [parent, key] = t.split('.');
+  const t = type.replace(/[$#]/g, '');
+  const [parent, key] = t.split('.');
   // console.log(parent, key);
   let referencedType;
   if (parent && key) {
@@ -27,44 +27,35 @@ function l(k, logdata) {
     console.log(logdata);
   }
 }
-function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
-  let typeScriptStringTokens = [];
-  let generatedTypes = [];
+function generateTypeScriptType(AST, trueAST, tabIndexCount = 0) {
+  const typeScriptStringTokens = [];
+  const generatedTypes = [];
   const keys = Object.keys(AST);
   keys.forEach((k) => {
     let typeBlockOpened = false;
-    let node = AST[k];
+    const node = AST[k];
     if (node?.dataType?.includes('#')) {
-      const astReferenceObject = getReferencedTypeFromAST(
-        node.dataType,
-        trueAST,
-      );
+      const astReferenceObject = getReferencedTypeFromAST(node.dataType, trueAST);
       if (typeof astReferenceObject === 'object') {
         // node = astReferenceObject; //this style uses the entire reference, but do we only want the children? Todl as a review
         node.children = astReferenceObject.children;
-        AST[k] = node;
+        Object.assign(AST, { [k]: node });
         // console.log(k, AST[k]);
       }
-    } else if (
-      node?.dataType === 'array' &&
-      node?.arrayChildrenType?.includes('#')
-    ) {
-      const astReferenceObject = getReferencedTypeFromAST(
-        node.arrayChildrenType,
-        trueAST,
-      );
+    } else if (node?.dataType === 'array' && node?.arrayChildrenType?.includes('#')) {
+      const astReferenceObject = getReferencedTypeFromAST(node.arrayChildrenType, trueAST);
       // console.log(astReferenceObject);
       if (typeof astReferenceObject === 'object') {
         node.children = astReferenceObject.children;
-        AST[k] = node;
+        Object.assign(AST, { [k]: node });
       }
     }
     const {
       isOptional,
       isRoot,
       dataType,
-      http_method,
-      http_path,
+      httpMethod,
+      httpPath,
       commentText,
       possibleValues,
       arrayChildrenType,
@@ -81,23 +72,19 @@ function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
       const indentationPrefix = !isRoot ? tabs : '';
       const arrayOpeningPrefix = dataType === 'array' ? '[' : '';
       if (commentText) {
-        typeScriptStringTokens.push(
-          `${indentationPrefix}/** ${commentText} */`,
-        );
+        typeScriptStringTokens.push(`${indentationPrefix}/** ${commentText} */`);
       }
       typeScriptStringTokens.push(
-        `${indentationPrefix}${declarationSuffix}${k}${optionalSuffix}${equalitySuffix}${arrayOpeningPrefix}{`,
+        `${indentationPrefix}${declarationSuffix}${k}${optionalSuffix}${equalitySuffix}${arrayOpeningPrefix}{`
       );
       typeBlockOpened = true;
-      if (http_method && http_path) {
+      if (httpMethod && httpPath) {
         const inlineTabs = new Array(tabIndexCount + 1).fill('  ').join('');
-        typeScriptStringTokens.push(
-          `${inlineTabs}HTTP_METHOD:'${http_method}';`,
-        );
-        typeScriptStringTokens.push(`${inlineTabs}HTTP_PATH:'${http_path}';`);
+        typeScriptStringTokens.push(`${inlineTabs}HTTP_METHOD:'${httpMethod}';`);
+        typeScriptStringTokens.push(`${inlineTabs}HTTP_PATH:'${httpPath}';`);
       }
     } else {
-      let dataTypeToRender = dataType; //.replace('#', '').replace('.', "['");
+      let dataTypeToRender = dataType; // .replace('#', '').replace('.', "['");
       if (dataTypeToRender?.includes('#')) {
         dataTypeToRender = getReferencedTypeFromAST(dataType, trueAST);
       }
@@ -116,12 +103,12 @@ function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
       typeScriptStringTokens.push(
         `${tabs}${k}${optionalSuffix}: ${arrayOpeningPrefix}${
           dataTypeToRender || 'any'
-        }${arrayClosingSuffix};`,
+        }${arrayClosingSuffix};`
       );
     }
     if (nodeHasChildren) {
       typeScriptStringTokens.push(
-        generateTypeScriptType(node.children, tabIndexCount + 1, trueAST),
+        generateTypeScriptType(node.children, trueAST, tabIndexCount + 1)
       );
     }
 
@@ -131,9 +118,7 @@ function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
       const arrayClosingSuffix = dataType === 'array' ? ']' : '';
       // const terminationSuffix = isRoot ? ' = ' : ': ';
       const indentationPrefix = !isRoot ? tabs : '';
-      typeScriptStringTokens.push(
-        `${indentationPrefix}}${arrayClosingSuffix};`,
-      );
+      typeScriptStringTokens.push(`${indentationPrefix}}${arrayClosingSuffix};`);
       if (isRoot) {
         typeScriptStringTokens.push(`\nexport { ${k} };\n\n`);
         // writeFileWithDirs('./utype.ts', typeScriptStringTokens.join('\n'));

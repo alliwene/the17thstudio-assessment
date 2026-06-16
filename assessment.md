@@ -1,354 +1,304 @@
-# Backend Engineers Wanted - Contract to Full-Time Opportunity
-
-**Resilience 17 Venture Studio** is seeking **exceptional backend engineers**. This is a **1-year contract** with strong potential for conversion to full-time for candidates who demonstrate outstanding work ethics and execution.
-
-## What We're Looking For
-
-We need engineers who can:
-- **Follow instructions carefully** - Strong attention to detail and precision
-- **Work efficiently** - Ability to move quickly while maintaining quality
-- **Code confidently with AI assistants** - Must be comfortable using GitHub Copilot, Cursor, or similar AI coding tools
-- **Master vanilla JavaScript fundamentals** - Strong grasp of core JavaScript concepts (you'll use Express.js for routing, but we value engineers who understand the fundamentals)
-- **Take initiative** - Identify and solve problems proactively
-- **Produce quality work** - Consistently deliver clean, functional code
-- **Start immediately** - We need people available to begin right away
-
-## The Role
-
-You'll be implementing well-defined and thoroughly documented API/backend service contracts and business requirements. This role focuses on precise execution of clear specifications in a fast-paced environment.
-
-**Key Responsibilities:**
-- Build robust backend services using Node.js and Express
-- Implement API contracts with precision and attention to detail  
-- Work with MongoDB for data persistence
-- Deploy applications on cloud platforms (Heroku/Render)
-- Collaborate in an agile team environment
-- Report directly to the Engineering Lead
-
-## Essential Requirements
-
-- **Immediate availability** - We need engineers ready to start as soon as possible
-- **Node.js** (vanilla JavaScript) and **Express.js**
-- **MongoDB** experience
-- Experience with **cloud deployment** (Heroku, Render, or similar)
-- Understanding of **RESTful API** design and implementation
-- **Git/GitHub** proficiency
-- Strong debugging and problem-solving skills
-- Ability to follow project templates and coding standards precisely
-
-## What We Offer
-
-- **100% remote work**
-- **Flexible schedule** - deliverables matter more than hours
-- **Real conversion opportunity** - Exceptional performers will be offered full-time positions
-- **Fintech/Banking industry exposure** - Work on cutting-edge financial technology
-- **Venture Studio environment** - Fast-paced, innovative, entrepreneurial culture
-
-## How to Apply
-
-**DEADLINE: [SUBMISSION_DEADLINE]**
-
-Complete our technical assessment and submit it via this [Google form](https://docs.google.com/forms/d/e/1FAIpQLSd0X19LG0iKaqMI57UvePwacc7Cb9KmF3W05m0HD93ddGgvUg/viewform?usp=publish-editor). You must provide:
-1. **Publicly accessible GitHub repository** with your solution
-2. **Full deployed endpoint URL** including the path (e.g., `https://myassessmentapp.herokuapp.com/payment-instructions`)
-
----
+# NodejsBackendEngineer2026-Assessment
 
 ## Technical Assessment
 
-**IMPORTANT: You must use the provided project template**  
+**IMPORTANT: You must use the provided project template**
 📦 [Backend Template Repository](https://github.com/the17thstudio/node-template)
 
-Build a **payment instruction parser and executor** that processes financial transaction instructions in a structured format.
+**IMPORTANT: Follow the instructions to the letter**
+The ability to follow instructions precisely is a core part of what this assessment evaluates. A correct, working implementation that did not follow the instructions to the letter will **NOT** be considered.
+
+Build a **Creator Card microservice API** that lets creators publish a shareable profile card showcasing their links and service rates (think "link-in-bio" cards with rate cards attached).
+
+> Note: This assessment is a standalone technical exercise. It is not a reflection of the products or domain you will actually work on.
 
 ### Overview
 
-Your task is to create a REST API that parses payment instructions, validates them against business rules, and executes transactions on provided accounts. This simulates a core component of payment processing systems used in fintech applications.
+Your task is to create a REST API with three endpoints: one that creates Creator Cards after validating them against the rules below, one that publicly retrieves a card by its slug while respecting draft status and private access controls, and one that deletes a card by its slug.
 
-### Endpoint Specification
+### The Creator Card Entity
 
-**Path:** `POST /payment-instructions`
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `id` | string | ULID | Stored as `_id` in MongoDB, but ALWAYS serialized as `id` in API responses |
+| `title` | string | 3–100 characters | e.g. "George Cooks" |
+| `description` | string | max 500 characters | e.g. "George Cooks is a weekly cooking podcast by Chef George AmadiObi" |
+| `slug` | string | 5–50 characters; unique; letters, numbers, hyphens and underscores only | Public identifier used for card retrieval |
+| `creator_reference` | string | exactly 20 characters | Identifies the creator on the consuming service |
+| `links[]` | array of objects | — | Links the creator wants to showcase |
+| `links[].title` | string | 1–100 characters | Title of the link |
+| `links[].url` | string | max 200 characters; must start with `http://` or `https://` | Link URL |
+| `service_rates` | object | — | Rates offered by the creator for services |
+| `service_rates.currency` | string | enum: `NGN` \| `USD` \| `GBP` \| `GHS` | Currency for all rates on the card |
+| `service_rates.rates[]` | array of objects | non-empty if `service_rates` is present | Individual service rates |
+| `service_rates.rates[].name` | string | 3–100 characters | e.g. "IG Story Post" |
+| `service_rates.rates[].description` | string | max 250 characters | Description of the service |
+| `service_rates.rates[].amount` | number | positive integer (min 1) | Minor units: kobo for NGN, cents for USD, pence for GBP, pesewas for GHS |
+| `status` | string | enum: `draft` \| `published` | Drafts can NEVER be retrieved via the public endpoint |
+| `access_type` | string | enum: `public` \| `private` | Defaults to `public` |
+| `access_code` | string | exactly 6 alphanumeric characters | Required if `access_type` is `private` |
+| `created` | number | — | Unix epoch milliseconds |
+| `updated` | number | — | Unix epoch milliseconds |
+| `deleted` | number \| null | — | `null` unless the card has been deleted |
+
+**Important - `_id` vs `id`:** In MongoDB the document identifier lives in the `_id` field, per MongoDB convention. However, all front-facing API responses must expose it as `id`. Your serialization layer is responsible for this mapping - a response containing `_id` is incorrect.
+
+### Endpoint 1: Create Creator Card
+
+**Path:** `POST /creator-cards`
 
 **Request Format:**
 ```json
 {
-  "accounts": [
-    {"id": "a", "balance": 230, "currency": "USD"},
-    {"id": "b", "balance": 300, "currency": "USD"}
+  "title": "George Cooks",
+  "description": "George Cooks is a weekly cooking podcast by Chef George AmadiObi",
+  "slug": "george-cooks",
+  "creator_reference": "crt_8f2k1m9x4p7w3q5z",
+  "links": [
+    {"title": "YouTube Channel", "url": "https://youtube.com/@georgecooks"},
+    {"title": "Instagram", "url": "https://instagram.com/georgecooks"}
   ],
-  "instruction": "DEBIT 30 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT b"
+  "service_rates": {
+    "currency": "NGN",
+    "rates": [
+      {"name": "IG Story Post", "description": "One Instagram story mention", "amount": 5000000},
+      {"name": "Recipe Feature", "description": "Featured recipe segment on the podcast", "amount": 15000000}
+    ]
+  },
+  "status": "published",
+  "access_type": "public"
 }
 ```
 
-**Response Format (Success):**
+**Field Requirements:**
+
+| Field | Required | Rules |
+|-------|----------|-------|
+| `title` | Yes | String, 3-100 characters |
+| `description` | No | String, max 500 characters |
+| `slug` | No | 5-50 characters; letters, numbers, hyphens (-) and underscores (_) only; must be unique across all cards |
+| `creator_reference` | Yes | String of **exactly 20 characters** |
+| `links` | No | Array; each entry must have a `title` (1-100 chars) and a valid `url` (max 200 chars) starting with `http://` or `https://` |
+| `service_rates` | No | If present: `currency` must be one of NGN, USD, GBP, GHS; `rates` must be a non-empty array; each rate must have a `name` (3-100 chars), a `description` (max 250 chars), and an `amount` that is a **positive integer** (minor units - no decimals, no negatives, no zero) |
+| `status` | Yes | Must be exactly `draft` or `published` |
+| `access_type` | No | Must be `public` or `private` if present; defaults to `public` when omitted |
+| `access_code` | Conditional | **Required** if `access_type` is `private`; must be **exactly 6 alphanumeric characters** (letters and numbers only). Must NOT be provided when `access_type` is `public` or omitted |
+
+**A note on validation:** The project template ships with a validator DSL (VSL) that handles field-level validation - types, required fields, lengths, and enums - and returns its own formatted error responses. Use it. Your job is to ensure all validation failures return **HTTP 400**, and to implement the **business rules the validator cannot express** (slug uniqueness, the conditional access_code rules, retrieval access control). Those business rules carry the custom error codes defined below.
+
+**Slug Auto-Generation:**
+
+If `slug` is omitted, your service must auto-generate one from the title:
+1. Lowercase the title
+2. Replace whitespace with hyphens
+3. Remove any characters that are not letters, numbers, hyphens, or underscores
+4. If the result is shorter than 5 characters OR already taken by another card, append a hyphen followed by a random 6-character alphanumeric suffix (e.g., `cook-a8x2k1`)
+
+If `slug` IS provided by the client and is already taken, return the `SL02` error - do NOT silently modify a client-provided slug.
+
+**Response Format (Success - HTTP 200):**
 ```json
 {
-  "type": "DEBIT",
-  "amount": 30,
-  "currency": "USD",
-  "debit_account": "a",
-  "credit_account": "b",
-  "execute_by": null,
-  "status": "successful",
-  "status_reason": "Transaction executed successfully",
-  "status_code": "AP00",
-  "accounts": [
-    {
-      "id": "a",
-      "balance": 200,
-      "balance_before": 230,
-      "currency": "USD"
+  "status": "success",
+  "message": "Creator Card Created Successfully.",
+  "data": {
+    "id": "01JG8XYZA2B3C4D5E6F7G8H9J0",
+    "title": "George Cooks",
+    "description": "George Cooks is a weekly cooking podcast by Chef George AmadiObi",
+    "slug": "george-cooks",
+    "creator_reference": "crt_8f2k1m9x4p7w3q5z",
+    "links": [
+      {"title": "YouTube Channel", "url": "https://youtube.com/@georgecooks"},
+      {"title": "Instagram", "url": "https://instagram.com/georgecooks"}
+    ],
+    "service_rates": {
+      "currency": "NGN",
+      "rates": [
+        {"name": "IG Story Post", "description": "One Instagram story mention", "amount": 5000000},
+        {"name": "Recipe Feature", "description": "Featured recipe segment on the podcast", "amount": 15000000}
+      ]
     },
-    {
-      "id": "b",
-      "balance": 330,
-      "balance_before": 300,
-      "currency": "USD"
-    }
-  ]
+    "status": "published",
+    "access_type": "public",
+    "access_code": null,
+    "created": 1767052800000,
+    "updated": 1767052800000,
+    "deleted": null
+  }
 }
 ```
-*Note: Account "a" is the debit account (losing money), account "b" is the credit account (gaining money)*
+*Note: `access_code` is returned in the creation response (the creator needs to know it), but it is NEVER returned by the public retrieval endpoint.*
+
+**Response Format (Business Rule Error - HTTP 400):**
+```json
+{
+  "status": "error",
+  "message": "Slug is already taken",
+  "code": "SL02"
+}
+```
+
+### Endpoint 2: Public Card Retrieval
+
+**Path:** `GET /creator-cards/:slug`
+
+Retrieves a single Creator Card by its slug. This is the **public** endpoint that powers shareable card links.
+
+**Access Rules (apply in this order):**
+
+1. If no card with that slug exists → **HTTP 404**, error code `NF01`
+2. If the card exists but its `status` is `draft` → **HTTP 404**, error code `NF02` (drafts are not publicly retrievable; the distinct code lets API callers distinguish "does not exist" from "exists but is a draft")
+3. If the card is `private` and no `access_code` query parameter was supplied → **HTTP 403**, error code `AC03`
+4. If the card is `private` and the supplied `access_code` does not match → **HTTP 403**, error code `AC04`
+5. Otherwise → **HTTP 200** with the card data
+
+**Private card access:** clients supply the pin as a query parameter:
+```
+GET /creator-cards/george-cooks?access_code=A1B2C3
+```
+
+**Response Format (Success - HTTP 200):**
+```json
+{
+  "status": "success",
+  "message": "Creator Card Retrieved Successfully.",
+  "data": {
+    "id": "01JG8XYZA2B3C4D5E6F7G8H9J0",
+    "title": "George Cooks",
+    "description": "George Cooks is a weekly cooking podcast by Chef George AmadiObi",
+    "slug": "george-cooks",
+    "creator_reference": "crt_8f2k1m9x4p7w3q5z",
+    "links": [
+      {"title": "YouTube Channel", "url": "https://youtube.com/@georgecooks"}
+    ],
+    "service_rates": {
+      "currency": "NGN",
+      "rates": [
+        {"name": "IG Story Post", "description": "One Instagram story mention", "amount": 5000000}
+      ]
+    },
+    "status": "published",
+    "access_type": "public",
+    "created": 1767052800000,
+    "updated": 1767052800000,
+    "deleted": null
+  }
+}
+```
+*Note: The `access_code` field is OMITTED entirely from retrieval responses, even for private cards accessed with the correct pin. The identifier is exposed as `id`, never `_id`.*
 
 **Response Format (Error):**
 ```json
 {
-  "type": "DEBIT",
-  "amount": 30,
-  "currency": "EUR",
-  "debit_account": "a",
-  "credit_account": "b",
-  "execute_by": null,
-  "status": "failed",
-  "status_reason": "Unsupported currency. Only NGN, USD, GBP, and GHS are supported",
-  "status_code": "CU02",
-  "accounts": [
-    {
-      "id": "a",
-      "balance": 230,
-      "balance_before": 230,
-      "currency": "USD"
-    },
-    {
-      "id": "b",
-      "balance": 300,
-      "balance_before": 300,
-      "currency": "USD"
-    }
-  ]
+  "status": "error",
+  "message": "Creator card not found",
+  "code": "NF01"
 }
 ```
-*Note: For failed transactions, balances remain unchanged*
 
-**Response Format (Unparseable Instruction):**
+### Endpoint 3: Delete Creator Card
+
+**Path:** `DELETE /creator-cards/:slug`
+
+Deletes the card tied to the given slug.
+
+**Request Format:**
 ```json
 {
-  "type": null,
-  "amount": null,
-  "currency": null,
-  "debit_account": null,
-  "credit_account": null,
-  "execute_by": null,
-  "status": "failed",
-  "status_reason": "Malformed instruction: unable to parse keywords",
-  "status_code": "SY03",
-  "accounts": []
+  "creator_reference": "crt_8f2k1m9x4p7w3q5z"
 }
 ```
-*Note: When instruction cannot be parsed at all, return null for all parseable fields (type, amount, currency, accounts, execute_by) and empty array for accounts. Only status, status_reason, and status_code should have values.*
 
-### Instruction Syntax
+**Field Requirements:**
 
-Your parser must support **TWO distinct instruction formats:**
+| Field | Required | Rules |
+|-------|----------|-------|
+| `creator_reference` | Yes | String of **exactly 20 characters** |
 
-**Format 1 - DEBIT instruction:**
+**Behavior:**
+
+- If no card with that slug exists → **HTTP 404**, error code `NF01`
+- On success → **HTTP 200**, returning the **deleted card in the same response format as the creation endpoint**
+- Once a card is deleted, it must no longer be retrievable via the public retrieval endpoint (`GET /creator-cards/:slug` returns **HTTP 404**, `NF01`)
+
+**Response Format (Success - HTTP 200):**
+```json
+{
+  "status": "success",
+  "message": "Creator Card Deleted Successfully.",
+  "data": {
+    "id": "01JG8XYZA2B3C4D5E6F7G8H9J0",
+    "title": "George Cooks",
+    "description": "George Cooks is a weekly cooking podcast by Chef George AmadiObi",
+    "slug": "george-cooks",
+    "creator_reference": "crt_8f2k1m9x4p7w3q5z",
+    "links": [
+      {"title": "YouTube Channel", "url": "https://youtube.com/@georgecooks"},
+      {"title": "Instagram", "url": "https://instagram.com/georgecooks"}
+    ],
+    "service_rates": {
+      "currency": "NGN",
+      "rates": [
+        {"name": "IG Story Post", "description": "One Instagram story mention", "amount": 5000000},
+        {"name": "Recipe Feature", "description": "Featured recipe segment on the podcast", "amount": 15000000}
+      ]
+    },
+    "status": "published",
+    "access_type": "public",
+    "access_code": null,
+    "created": 1767052800000,
+    "updated": 1767052800000,
+    "deleted": 1767139200000
+  }
+}
 ```
-DEBIT [amount] [currency] FROM ACCOUNT [account_id] FOR CREDIT TO ACCOUNT [account_id] [ON [date]]
-```
 
-**Format 2 - CREDIT instruction:**
-```
-CREDIT [amount] [currency] TO ACCOUNT [account_id] FOR DEBIT FROM ACCOUNT [account_id] [ON [date]]
-```
+### Custom Error Codes
 
-**Important:** Both formats perform the **same transaction** - money moves from one account to another. The difference is only in phrasing:
-- **DEBIT format** emphasizes the source account (FROM ACCOUNT)
-- **CREDIT format** emphasizes the destination account (TO ACCOUNT)
+Field-level validation errors (wrong types, missing required fields, length violations, invalid enum values) are handled by the template's validator and simply need to return **HTTP 400**. The codes below are the **custom business rule errors you must implement yourself**:
 
-In both cases, one account loses money (debit) and one account gains money (credit).
+| Business Rule | Error Code | HTTP Code | Example Message |
+|---------------|------------|-----------|-----------------|
+| Slug must be unique across all cards | `SL02` | 400 | "Slug is already taken" |
+| access_code is required when access_type is private | `AC01` | 400 | "access_code is required when access_type is private" |
+| access_code must not be set on public cards | `AC05` | 400 | "access_code can only be set on private cards" |
+| Card with the given slug does not exist | `NF01` | 404 | "Creator card not found" |
+| Card exists but is in draft status | `NF02` | 404 | "Creator card not found" |
+| Access code required to view private card | `AC03` | 403 | "This card is private. An access code is required" |
+| Invalid access code | `AC04` | 403 | "Invalid access code" |
 
-**Keywords (case-insensitive):**
-- `DEBIT` / `CREDIT` - Transaction type keyword
-- `FROM` - Source account indicator
-- `FOR` - Transaction purpose connector
-- `TO` - Destination account indicator
-- `ACCOUNT` - Account identifier prefix
-- `ON` - Optional execution date (YYYY-MM-DD format)
+**Important Notes:**
+- The `message` field should contain a clear, human-readable message (never empty)
+  - The messages in the table are **examples** - you may customize them to be more descriptive
+- The `code` must match exactly as specified in the table above
+- Retrieval access rules (NF01, NF02, AC03, AC04) must be applied **in the order listed** in the Access Rules section
+- Note that `NF01` and `NF02` both return HTTP 404 with similar messages - the code is what allows an API caller to tell them apart
 
-**Supported Currencies (case-insensitive, but must output as UPPERCASE):**
-- `NGN` (Nigerian Naira)
-- `USD` (US Dollar)
-- `GBP` (British Pound)
-- `GHS` (Ghanaian Cedi)
+**Additional Checks & Business Logic:**
 
-**Valid Example Instructions:**
-```
-DEBIT 500 USD FROM ACCOUNT N90394 FOR CREDIT TO ACCOUNT N9122 ON 2026-09-20
-CREDIT 450 NGN TO ACCOUNT acc-002 FOR DEBIT FROM ACCOUNT acc-001 ON 2026-02-21
-DEBIT 30 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT b
-credit 100 gbp to account xyz@bank for debit from account abc
-```
-
-### Parsing Rules
-
-1. **Keyword Order:** Keywords must appear in the exact order specified for each format
-   - DEBIT format: `DEBIT → FROM ACCOUNT → FOR CREDIT TO ACCOUNT → [ON]`
-   - CREDIT format: `CREDIT → TO ACCOUNT → FOR DEBIT FROM ACCOUNT → [ON]`
-
-2. **Case Sensitivity:** 
-   - Keywords (`DEBIT`, `CREDIT`, `FROM`, `TO`, etc.) are case-insensitive during parsing
-   - Currency codes are case-insensitive during parsing but **must be returned as UPPERCASE** in responses
-   - Account IDs are case-sensitive
-
-3. **Spacing:** Keywords must be separated by one or more whitespace characters (spaces, tabs, etc.)
-   - Instructions may contain leading/trailing whitespace - handle appropriately
-   - Multiple consecutive spaces between keywords should be handled gracefully
-   - Example: Both `DEBIT 100 USD` and `DEBIT  100   USD` (multiple spaces) are valid
-
-4. **Account ID Format:** Can contain letters, numbers, hyphens (-), periods (.), and at symbols (@). Any other characters are invalid.
-
-5. **Amount:** Must be a positive integer (no decimals, no negatives)
-
-6. **Date Format:** Must be `YYYY-MM-DD` if the `ON` clause is present (e.g., `2026-09-20`)
-
-7. **Date Comparison Logic:**
-   - Use **UTC timezone** for all date comparisons
-   - Compare only the date portion (ignore time)
-   - If `ON date <= current UTC date`: Execute immediately (status: "successful", code: AP00)
-   - If `ON date > current UTC date`: Mark as pending (status: "pending", code: AP02)
-
-8. **Optional Date:** The `ON [date]` clause is optional
-
-9. **No Regular Expressions:** You must parse the instruction using string manipulation methods only (`.split()`, `.indexOf()`, `.substring()`, etc.). **Do not use regex patterns anywhere in your parsing logic.**
-
-### Validation Rules & Status Codes
-
-Your parser must validate the following business rules and return appropriate status codes:
-
-| Validation Rule | Status Code | Example Status Reason |
-|----------------|-------------|----------------------|
-| Amount must be positive integer | `AM01` | "Amount must be a positive integer" |
-| Currencies must match between accounts | `CU01` | "Account currency mismatch" |
-| Only NGN, USD, GBP, GHS supported | `CU02` | "Unsupported currency" |
-| Sufficient funds required | `AC01` | "Insufficient funds in debit account" |
-| Debit and credit accounts must differ | `AC02` | "Debit and credit accounts cannot be the same" |
-| Account must exist in accounts array | `AC03` | "Account not found" |
-| Account ID must have valid characters | `AC04` | "Invalid account ID format" |
-| Date must be in YYYY-MM-DD format | `DT01` | "Invalid date format" |
-| Required keywords must be present | `SY01` | "Missing required keyword" |
-| Keywords must be in correct order | `SY02` | "Invalid keyword order" |
-| General parsing/syntax errors | `SY03` | "Malformed instruction" |
-| Successful execution | `AP00` | "Transaction executed successfully" |
-| Pending future execution | `AP02` | "Transaction scheduled for future execution" |
-
-**Important Notes on Validation:**
-- Your parser should catch and return validation errors with appropriate status codes
-- The `status_reason` field should contain a clear, human-readable message (never empty)
-  - The status reasons in the table are **examples** - you may customize messages to be more descriptive
-  - Example: Instead of "Insufficient funds", you can write "Insufficient funds in account A: has 100 USD, needs 500 USD"
-- The `status_code` must match exactly as specified in the table above
-- **If multiple validation errors exist, you may return ANY ONE valid error**
-  - Our test suite will verify that you caught a valid error, not necessarily a specific one
-  - Both syntax errors (SY01, SY02, SY03, AM01, AC04, DT01) and business rule errors (AC01, AC02, AC03, CU01, CU02) are acceptable
-  - You can validate in any order - syntax first, business rules first, or as-you-parse
-
-### Transaction Mechanics & Response Fields
-
-**Understanding Debit and Credit:**
-
-Following accounting principles:
-- **Debit account** = The account losing money (source)
-- **Credit account** = The account gaining money (destination)
-
-**Both instruction formats execute the same transaction:**
-
-Example 1:
-```
-DEBIT 100 USD FROM ACCOUNT A FOR CREDIT TO ACCOUNT B
-```
-- Account A loses 100 USD (debit)
-- Account B gains 100 USD (credit)
-- Response: `debit_account: "A"`, `credit_account: "B"`, `type: "DEBIT"`
-
-Example 2:
-```
-CREDIT 100 USD TO ACCOUNT B FOR DEBIT FROM ACCOUNT A
-```
-- Account A loses 100 USD (debit)
-- Account B gains 100 USD (credit)  
-- Response: `debit_account: "A"`, `credit_account: "B"`, `type: "CREDIT"`
-
-**The `type` field in the response reflects the first keyword used (DEBIT or CREDIT), but the transaction mechanics are identical.**
-
-**Execution Logic:**
-
-**Immediate Execution:**
-- If `ON` date is omitted or in the past: Execute immediately, update balances, return `status: "successful"` and `status_code: "AP00"`
-
-**Future Execution:**
-- If `ON` date is in the future: Do NOT update balances, return `status: "pending"` and `status_code: "AP02"`
-- Balances remain unchanged for pending transactions
-
-### Response Requirements
-
-**HTTP Status Codes:**
-- Return **HTTP 200** for successful transactions and pending transactions
-- Return **HTTP 400** for all validation errors and parsing failures
-
-**All responses must include these fields:**
-
-1. `type` - "DEBIT" or "CREDIT" (based on first keyword in instruction, or `null` if unparseable)
-2. `amount` - The parsed amount as an integer (or `null` if unparseable)
-3. `currency` - The parsed currency code in **UPPERCASE** (or `null` if unparseable)
-4. `debit_account` - The account losing money (or `null` if unparseable)
-5. `credit_account` - The account gaining money (or `null` if unparseable)
-6. `execute_by` - The date string (YYYY-MM-DD) or `null` if not provided or unparseable
-7. `status` - "successful", "pending", or "failed"
-8. `status_reason` - Human-readable message (never empty, always include a meaningful message)
-9. `status_code` - Exact code from the validation rules table
-10. `accounts` - Array of ONLY the two accounts involved in the transaction (empty array if accounts cannot be identified)
-    - **Must maintain the exact order from the request accounts array**
-    - If request has accounts in order `[b, a, c]` and transaction uses `a` and `b`, return `[b, a]` in that order
-
-**For completely unparseable instructions:**
-- Set all parseable fields (`type`, `amount`, `currency`, etc.) to `null`
-- Include appropriate error status, status_reason, and status_code
-- Return empty accounts array if accounts cannot be identified
-
-**Account Objects in Response:**
-- `id` - Account identifier
-- `balance` - Current/final balance after transaction (or unchanged if pending/failed)
-- `balance_before` - Original balance before transaction
-- `currency` - Account currency in **UPPERCASE**
+You are free to take liberties and include **additional checks, constraints, or business logic** beyond what is specified - so long as nothing you add **conflicts** with the instructions given here. The specified request/response shapes, error codes, and HTTP statuses must remain exactly as defined. Thoughtful additions are welcome and may come up for discussion at the interview stage.
 
 ### Requirements
 
-1. **Use the provided Node.js project scaffold template** - [Backend Template](https://github.com/Resilience-17-Labs/assessment-profold)
-   - You must follow the backend template structure exactly
+1. **Use the provided Node.js project scaffold template** - [Backend Template](https://github.com/the17thstudio/node-template)
+   - You must follow the backend template structure exactly (services, endpoints, messages, middleware conventions)
+   - Use the template's validator (VSL) for field-level validation
+   - Use the template's error utilities for throwing business rule errors
    - Do not deviate from the project organization
 
-2. **No Regular Expressions** - Build the parser using string manipulation methods only
-   - ✅ Allowed: `.split('string')`, `.indexOf()`, `.substring()`, `.slice()`, `.trim()`, `.toLowerCase()`, `.toUpperCase()`, `.replace('string', 'string')`, etc.
-   - ❌ Not allowed: Regex patterns, `.match()`, `.split(/regex/)`, `.replace(/regex/, 'string')`, `.test()`, etc.
-   - Parse instructions using basic string operations only
-   - You may use `.split()` and `.replace()` with **string arguments**, but not with regex patterns
+2. **MongoDB Required** - Cards must be persisted in MongoDB
+   - Use MongoDB Atlas free tier (or similar) for your deployed instance
+   - Documents use `_id` internally per MongoDB convention; API responses must expose `id`
+   - Slug uniqueness must hold across all requests, including auto-generated slugs
 
 3. **Deploy your solution** to Heroku, Render, or similar platform
-   - Your endpoint must be publicly accessible at `POST /payment-instructions`
-   - **No authentication required** - no bearer tokens, API keys, or any auth mechanisms
-   - **No database required** - this assessment doesn't need any database connection
+   - All three endpoints must be publicly accessible
+   - **No authentication required** - do NOT implement or require API keys, bearer tokens, or any auth headers
+   - **No URL versioning** - endpoints must live at the root of your base URL: `POST {base_url}/creator-cards`, NOT `POST {base_url}/v1/creator-cards` or `POST {base_url}/api/creator-cards`
 
-4. **Error Handling** - All errors must return appropriate JSON responses with proper status codes
+4. **Error Handling** - All errors must return appropriate JSON responses with proper HTTP status codes
+   - All validation failures (framework or custom) must return HTTP 400
+   - Malformed JSON bodies and unexpected server errors must not crash your service
 
 5. **Code Quality** - Clean, readable, well-organized code that follows the template structure
 
@@ -356,175 +306,187 @@ CREDIT 100 USD TO ACCOUNT B FOR DEBIT FROM ACCOUNT A
 
 **Valid Test Cases:**
 
-Test Case 1 - DEBIT format:
+Test Case 1 - Full creation:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "N90394", "balance": 1000, "currency": "USD"},
-    {"id": "N9122", "balance": 500, "currency": "USD"}
-  ],
-  "instruction": "DEBIT 500 USD FROM ACCOUNT N90394 FOR CREDIT TO ACCOUNT N9122"
+  "title": "George Cooks",
+  "description": "Weekly cooking podcast",
+  "slug": "george-cooks",
+  "creator_reference": "crt_8f2k1m9x4p7w3q5z",
+  "links": [{"title": "YouTube", "url": "https://youtube.com/@georgecooks"}],
+  "service_rates": {
+    "currency": "NGN",
+    "rates": [{"name": "IG Story Post", "description": "One story mention", "amount": 5000000}]
+  },
+  "status": "published"
 }
 ```
-*Expected: Successfully debit 500 from N90394 and credit to N9122*
+*Expected: HTTP 200, card created with access_type defaulting to "public", response contains `id` (not `_id`)*
 
-Test Case 2 - CREDIT format with future date:
+Test Case 2 - Slug auto-generation:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "acc-001", "balance": 1000, "currency": "NGN"},
-    {"id": "acc-002", "balance": 500, "currency": "NGN"}
-  ],
-  "instruction": "CREDIT 300 NGN TO ACCOUNT acc-002 FOR DEBIT FROM ACCOUNT acc-001 ON 2026-12-31"
+  "title": "Ada Designs Things",
+  "creator_reference": "crt_a1b2c3d4e5f6g7h8",
+  "status": "published"
 }
 ```
-*Expected: Status "pending", balances unchanged*
+*Expected: HTTP 200, slug auto-generated as "ada-designs-things"*
 
-Test Case 3 - Case insensitive keywords:
+Test Case 3 - Private card creation:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "a", "balance": 500, "currency": "GBP"},
-    {"id": "b", "balance": 200, "currency": "GBP"}
-  ],
-  "instruction": "debit 100 gbp from account a for credit to account b"
+  "title": "VIP Rate Card",
+  "creator_reference": "crt_x9y8z7w6v5u4t3s2",
+  "status": "published",
+  "access_type": "private",
+  "access_code": "A1B2C3"
 }
 ```
-*Expected: Successfully execute, currency returned as "GBP" (uppercase)*
+*Expected: HTTP 200, access_code "A1B2C3" returned in creation response*
 
-Test Case 4 - Past date (immediate execution):
+Test Case 4 - Retrieving a public published card:
+```
+GET /creator-cards/george-cooks
+```
+*Expected: HTTP 200 with card data, no access_code field, identifier exposed as `id`*
+
+Test Case 5 - Retrieving a private card with correct pin:
+```
+GET /creator-cards/vip-rate-card?access_code=A1B2C3
+```
+*Expected: HTTP 200 with card data, no access_code field in response*
+
+Test Case 6 - Deleting a card:
 ```json
+DELETE /creator-cards/ada-designs-things
 {
-  "accounts": [
-    {"id": "x", "balance": 500, "currency": "NGN"},
-    {"id": "y", "balance": 200, "currency": "NGN"}
-  ],
-  "instruction": "DEBIT 100 NGN FROM ACCOUNT x FOR CREDIT TO ACCOUNT y ON 2024-01-15"
+  "creator_reference": "crt_a1b2c3d4e5f6g7h8"
 }
 ```
-*Expected: Execute immediately with status "successful" (AP00) since date is in the past*
+*Expected: HTTP 200, the deleted card returned in the same format as the creation response, with `deleted` set*
 
 **Invalid Test Cases:**
 
-Test Case 5 - Currency mismatch:
+Test Case 7 - Duplicate slug:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "a", "balance": 100, "currency": "USD"},
-    {"id": "b", "balance": 500, "currency": "GBP"}
-  ],
-  "instruction": "DEBIT 50 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT b"
+  "title": "Another George",
+  "slug": "george-cooks",
+  "creator_reference": "crt_m1n2b3v4c5x6z7l8",
+  "status": "published"
 }
 ```
-*Expected: CU01 - Currency mismatch*
+*Expected: HTTP 400, SL02 (assuming Test Case 1 already created this slug)*
 
-Test Case 6 - Insufficient funds:
+Test Case 8 - Missing access_code on private card:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "a", "balance": 100, "currency": "USD"},
-    {"id": "b", "balance": 500, "currency": "USD"}
-  ],
-  "instruction": "DEBIT 500 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT b"
+  "title": "Secret Card",
+  "creator_reference": "crt_q1w2e3r4t5y6u7i8",
+  "status": "published",
+  "access_type": "private"
 }
 ```
-*Expected: AC01 - Insufficient funds*
+*Expected: HTTP 400, AC01*
 
-Test Case 7 - Unsupported currency:
+Test Case 9 - access_code on a public card:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "a", "balance": 100, "currency": "EUR"},
-    {"id": "b", "balance": 500, "currency": "EUR"}
-  ],
-  "instruction": "DEBIT 50 EUR FROM ACCOUNT a FOR CREDIT TO ACCOUNT b"
+  "title": "Public Card",
+  "creator_reference": "crt_q1w2e3r4t5y6u7i8",
+  "status": "published",
+  "access_type": "public",
+  "access_code": "A1B2C3"
 }
 ```
-*Expected: CU02 - Unsupported currency*
+*Expected: HTTP 400, AC05*
 
-Test Case 8 - Same account:
+Test Case 10 - Framework validation failure:
 ```json
+POST /creator-cards
 {
-  "accounts": [
-    {"id": "a", "balance": 500, "currency": "USD"}
-  ],
-  "instruction": "DEBIT 100 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT a"
+  "title": "Bad Status Card",
+  "creator_reference": "crt_q1w2e3r4t5y6u7i8",
+  "status": "archived"
 }
 ```
-*Expected: AC02 - Debit and credit accounts cannot be the same*
+*Expected: HTTP 400 with the validator's error response ("archived" is not a valid status). We are checking the HTTP code here, not a custom error code.*
 
-Test Case 9 - Negative amount:
-```json
-{
-  "accounts": [
-    {"id": "a", "balance": 500, "currency": "USD"},
-    {"id": "b", "balance": 200, "currency": "USD"}
-  ],
-  "instruction": "DEBIT -100 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT b"
-}
+Test Case 11 - Retrieving a non-existent card:
 ```
-*Expected: AM01 - Invalid amount*
+GET /creator-cards/does-not-exist-123
+```
+*Expected: HTTP 404, NF01*
 
-Test Case 10 - Account not found:
-```json
-{
-  "accounts": [
-    {"id": "a", "balance": 500, "currency": "USD"}
-  ],
-  "instruction": "DEBIT 100 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT xyz"
-}
+Test Case 12 - Retrieving a draft card:
 ```
-*Expected: AC03 - Account not found*
+GET /creator-cards/my-draft-card
+```
+*Expected: HTTP 404, NF02 (card exists but is a draft)*
 
-Test Case 11 - Decimal amount (should be rejected):
-```json
-{
-  "accounts": [
-    {"id": "a", "balance": 500, "currency": "USD"},
-    {"id": "b", "balance": 200, "currency": "USD"}
-  ],
-  "instruction": "DEBIT 100.50 USD FROM ACCOUNT a FOR CREDIT TO ACCOUNT b"
-}
+Test Case 13 - Retrieving a private card without a pin:
 ```
-*Expected: AM01 - Amount must be a positive integer (no decimals)*
+GET /creator-cards/vip-rate-card
+```
+*Expected: HTTP 403, AC03*
 
-Test Case 12 - Malformed instruction:
+Test Case 14 - Retrieving a private card with a wrong pin:
+```
+GET /creator-cards/vip-rate-card?access_code=WRONG1
+```
+*Expected: HTTP 403, AC04*
+
+Test Case 15 - Deleting a non-existent card:
 ```json
+DELETE /creator-cards/does-not-exist-123
 {
-  "accounts": [
-    {"id": "a", "balance": 500, "currency": "USD"},
-    {"id": "b", "balance": 200, "currency": "USD"}
-  ],
-  "instruction": "SEND 100 USD TO ACCOUNT b"
+  "creator_reference": "crt_q1w2e3r4t5y6u7i8"
 }
 ```
-*Expected: SY01 or SY03 - Missing required keywords or malformed instruction*
+*Expected: HTTP 404, NF01*
+
+Test Case 16 - Retrieving a deleted card:
+```
+GET /creator-cards/ada-designs-things
+```
+*Expected: HTTP 404, NF01 (assuming Test Case 6 deleted this card)*
 
 ### Submission Checklist
 
 Before submitting, ensure:
 - ✅ Your GitHub repository is public and contains clean, well-documented code
-- ✅ Your solution follows the provided template structure exactly
-- ✅ Your endpoint is deployed and accessible at `POST /payment-instructions`
-- ✅ All validation rules are implemented with correct status codes
-- ✅ Parser works without regex
-- ✅ Error messages are clear and helpful
+- ✅ Your solution follows the provided template structure exactly (services, endpoints, messages)
+- ✅ All three endpoints are deployed and publicly accessible
+- ✅ Field-level validation uses the template's validator and returns HTTP 400 on failure
+- ✅ All custom business rule errors return the correct code and HTTP status (SL02, AC01, AC05, NF01, NF02, AC03, AC04)
+- ✅ Drafts return 404 with NF02 on the public endpoint and access codes never leak in retrieval responses
+- ✅ Deleting a card returns the deleted card in the creation response format, and deleted cards return 404 (NF01) on the public endpoint
+- ✅ API responses expose `id`, never `_id`
+- ✅ Slug auto-generation and uniqueness work correctly
+- ✅ No auth required to call your endpoints - no API keys or bearer tokens
+- ✅ Your endpoints are at the root of your base URL with no versioning (`/creator-cards`, not `/v1/creator-cards`)
 - ✅ You've tested with multiple valid and invalid cases
+- ✅ You've re-read the instructions and followed them to the letter
 
 ---
 
 ## Application Process
 
-**Submissions open:** November 07, 2025.
+**Submissions open:** June 10, 2026.
 
-**Submissions close:** November 18, 2025.
+**Submissions close:** June 24, 2026.
 
-Submit your completed assessment using this [Google form](https://docs.google.com/forms/d/e/1FAIpQLSd0X19LG0iKaqMI57UvePwacc7Cb9KmF3W05m0HD93ddGgvUg/viewform?usp=dialog)
+Submit your completed assessment using this [Google form](https://docs.google.com/forms/d/e/1FAIpQLSekJeXzL45-iNidOqfRGzV2j7Pz5MoQyOC82qS0lk0gdBIHbw/viewform)
 
 Your submission must include:
 - GitHub repository link (public)
-- Full endpoint URL with path (e.g., `https://myassessmentapp.herokuapp.com/payment-instructions`)
+- Deployed **base URL only**, with no versioning and no endpoint paths (e.g., `https://submission.herokuapp.com`)
 
 ---
-
-*Ready to demonstrate your skills? We look forward to seeing what you can build.*

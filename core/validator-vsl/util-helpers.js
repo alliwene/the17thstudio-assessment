@@ -1,5 +1,10 @@
-const fs = require('fs').promises;
+const fs = require('fs');
+const util = require('util');
 const path = require('path');
+
+const mkdir = util.promisify(fs.mkdir);
+const access = util.promisify(fs.access);
+const writeFile = util.promisify(fs.writeFile);
 
 function toKebabCase(str) {
   return str
@@ -11,16 +16,16 @@ function toKebabCase(str) {
 async function writeFileWithDirs(filePath, content) {
   try {
     // Create all necessary directories
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await mkdir(path.dirname(filePath), { recursive: true });
 
     // Check if file exists
     try {
-      await fs.access(filePath);
+      await access(filePath);
       // console.log(`File ${filePath} already exists, skipping creation`);
-      throw 2;
+      throw new Error('File exists');
     } catch {
       // File doesn't exist, create it
-      await fs.writeFile(filePath, content);
+      await writeFile(filePath, content);
       // console.log(`Created file ${filePath}`);
     }
   } catch (error) {

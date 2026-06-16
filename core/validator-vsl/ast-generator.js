@@ -10,28 +10,30 @@ function generateASTFirstPhase(tree, nodeIndices, nodes, isChild) {
       constraints,
       possibleValues,
       isOptional,
-      http_method,
-      http_path,
+      httpMethod,
+      httpPath,
       commentText,
       arrayChildrenType,
     } = nodeAttributes;
-    const isEndpoint = !!(http_method && http_path);
+    const isEndpoint = !!(httpMethod && httpPath);
     if (name) {
-      tree[name] = {
-        alias,
-        isRoot,
-        isOptional,
-        dataType: type,
-        constraints,
-        possibleValues, // Can make this new Set
-        http_method,
-        http_path,
-        isEndpoint,
-        commentText,
-        arrayChildrenType,
-        spreads: node.spreads,
-        children: {},
-      };
+      Object.assign(tree, {
+        [name]: {
+          alias,
+          isRoot,
+          isOptional,
+          dataType: type,
+          constraints,
+          possibleValues, // Can make this new Set
+          httpMethod,
+          httpPath,
+          isEndpoint,
+          commentText,
+          arrayChildrenType,
+          spreads: node.spreads,
+          children: {},
+        },
+      });
       if (node.children) {
         generateASTFirstPhase(tree[name].children, node.children, nodes, true);
       }
@@ -44,7 +46,7 @@ function extractASTPath(path, AST) {
   let pathFound = true;
   let extractedASTPathValue = AST;
   const ptl = pathTokens.length;
-  for (var x = 0; x < ptl; x++) {
+  for (let x = 0; x < ptl; x++) {
     const astkey = pathTokens[x];
     if (!AST[astkey]) {
       pathFound = false;
@@ -59,11 +61,11 @@ function extractASTPath(path, AST) {
 
 function processSpreads(spreads, node, AST) {
   spreads.forEach((spreadPath) => {
-    //console.log(node, spreadPath, AST, 'CHECKING');
+    // console.log(node, spreadPath, AST, 'CHECKING');
     // console.log(AST);
     const extractedPathValue = extractASTPath(spreadPath, AST);
     // console.log('ExtractedValue', extractedPathValue);
-    node.children = { ...node.children, ...extractedPathValue.children };
+    Object.assign(node, { children: { ...node.children, ...extractedPathValue.children } });
   });
 }
 function fillInSpreadVals(AST, trueAST) {

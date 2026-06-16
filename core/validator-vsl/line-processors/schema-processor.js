@@ -1,5 +1,6 @@
 const { h, buildRegexFromComplexString } = require('../utils/regex-builder');
-schemaRegexString = h`
+
+const schemaRegexString = h`
 ^
   (#)?(?<SCHEMA_NAME>[a-zA-Z$_]+[a-zA-Z$_0-9]*)
   (?:\s+as\s+(?<SCHEMA_ALIAS>[a-zA-Z$_]+[a-zA-Z$_0-9]*))?

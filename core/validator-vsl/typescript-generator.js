@@ -1,6 +1,6 @@
 function getReferencedTypeFromAST(type, AST) {
-  let t = type.replace(/[$#]/g, '');
-  let [parent, key] = t.split('.');
+  const t = type.replace(/[$#]/g, '');
+  const [parent, key] = t.split('.');
   // console.log(parent, key);
   let referencedType;
   if (parent && key) {
@@ -20,21 +20,18 @@ function getReferencedTypeFromAST(type, AST) {
   // console.log(referencedType, AST);
   return referencedType;
 }
-function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
-  let typeScriptStringTokens = [];
+function generateTypeScriptType(AST, trueAST, tabIndexCount = 0) {
+  const typeScriptStringTokens = [];
   const keys = Object.keys(AST);
   let typeBlockOpened = false;
   keys.forEach((k) => {
-    let node = AST[k];
+    const node = AST[k];
     if (node?.dataType?.includes('#')) {
-      const astReferenceObject = getReferencedTypeFromAST(
-        node.dataType,
-        trueAST,
-      );
+      const astReferenceObject = getReferencedTypeFromAST(node.dataType, trueAST);
       if (typeof astReferenceObject === 'object') {
         // node = astReferenceObject; //this style uses the entire reference, but do we only want the children? Todl as a review
         node.children = astReferenceObject.children;
-        AST[k] = node;
+        Object.assign(AST, { [k]: node });
         // console.log(k, AST[k]);
       }
     }
@@ -42,8 +39,8 @@ function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
       isOptional,
       isRoot,
       dataType,
-      http_method,
-      http_path,
+      httpMethod,
+      httpPath,
       commentText,
       possibleValues,
       arrayChildrenType,
@@ -57,23 +54,19 @@ function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
       const optionalSuffix = !isRoot && isOptional ? '?' : '';
       const indentationPrefix = !isRoot ? tabs : '';
       if (commentText) {
-        typeScriptStringTokens.push(
-          `${indentationPrefix}/** ${commentText} */`,
-        );
+        typeScriptStringTokens.push(`${indentationPrefix}/** ${commentText} */`);
       }
       typeScriptStringTokens.push(
-        `${indentationPrefix}${declarationSuffix}${k}${optionalSuffix}${equalitySuffix}{`,
+        `${indentationPrefix}${declarationSuffix}${k}${optionalSuffix}${equalitySuffix}{`
       );
       typeBlockOpened = true;
-      if (http_method && http_path) {
+      if (httpMethod && httpPath) {
         const inlineTabs = new Array(tabIndexCount + 1).fill('\t').join('');
-        typeScriptStringTokens.push(
-          `${inlineTabs}HTTP_METHOD:'${http_method}';`,
-        );
-        typeScriptStringTokens.push(`${inlineTabs}HTTP_PATH:'${http_path}';`);
+        typeScriptStringTokens.push(`${inlineTabs}HTTP_METHOD:'${httpMethod}';`);
+        typeScriptStringTokens.push(`${inlineTabs}HTTP_PATH:'${httpPath}';`);
       }
     } else {
-      let dataTypeToRender = dataType; //.replace('#', '').replace('.', "['");
+      let dataTypeToRender = dataType; // .replace('#', '').replace('.', "['");
       if (dataTypeToRender.includes('#')) {
         dataTypeToRender = getReferencedTypeFromAST(dataType, trueAST);
       }
@@ -92,12 +85,12 @@ function generateTypeScriptType(AST, tabIndexCount = 0, trueAST) {
       typeScriptStringTokens.push(
         `${tabs}${k}${optionalSuffix}: ${arrayOpeningPrefix}${
           dataTypeToRender || 'any'
-        }${arrayClosingSuffix};`,
+        }${arrayClosingSuffix};`
       );
     }
     if (nodeHasChildren) {
       typeScriptStringTokens.push(
-        generateTypeScriptType(node.children, tabIndexCount + 1, trueAST),
+        generateTypeScriptType(node.children, trueAST, tabIndexCount + 1)
       );
     }
 
