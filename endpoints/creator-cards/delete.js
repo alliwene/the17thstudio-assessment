@@ -7,8 +7,10 @@ module.exports = createHandler({
   middlewares: [],
   async handler(rc, helpers) {
     const { slug } = rc.params;
-    const creatorReference = rc.body.creator_reference;
-    const response = await deleteService(slug, creatorReference);
+    const response = await deleteService({
+      slug,
+      creator_reference: rc.body?.creator_reference,
+    });
     return {
       status: helpers.http_statuses.HTTP_200_OK,
       message: 'Creator Card Deleted Successfully.',

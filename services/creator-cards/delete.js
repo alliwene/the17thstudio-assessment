@@ -1,15 +1,18 @@
+const validator = require('@app-core/validator');
 const { throwAppError } = require('@app-core/errors');
 const CreatorCard = require('@app/models/creator-card');
 
-async function deleteCard(slug, creatorReference) {
-  if (!creatorReference || creatorReference.length !== 20) {
-    throwAppError(
-      'creator_reference is required and must be exactly 20 characters',
-      'VALIDATIONERR'
-    );
-  }
+const deleteSpec = `root {
+  slug string
+  creator_reference string<length:20>
+}`;
 
-  const card = await CreatorCard.findOne({ slug });
+const parsedDeleteSpec = validator.parse(deleteSpec);
+
+async function deleteCard(serviceData) {
+  const validatedData = validator.validate(serviceData, parsedDeleteSpec);
+
+  const card = await CreatorCard.findOne({ slug: validatedData.slug });
 
   if (!card || card.deleted !== null) {
     throwAppError('Creator card not found', 'NF01');

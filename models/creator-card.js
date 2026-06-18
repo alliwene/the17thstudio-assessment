@@ -9,7 +9,7 @@ const linkSchemaConfig = {
 
 const serviceRateSchemaConfig = {
   name: { type: SchemaTypes.String, required: true },
-  description: { type: SchemaTypes.String },
+  description: { type: SchemaTypes.String, required: true },
   amount: { type: SchemaTypes.Number, required: true },
 };
 
