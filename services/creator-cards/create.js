@@ -159,6 +159,7 @@ async function create(serviceData) {
     _id: ulid(),
     slug: finalSlug,
     access_type: validatedData.access_type || 'public',
+    access_code: validatedData.access_code || null,
     created: now,
     updated: now,
   };
