@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node bootstrap.js",
     "test": "mocha --recursive --require dotenv/config",
-    "prepare": "husky",
+    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') process.exit(require('child_process').spawnSync('husky', { stdio: 'inherit', shell: true }).status || 0)\"",
     "commitlint": "commitlint --edit",
     "sync-envs": "node sync-env-files"
   },
