@@ -293,5 +293,6 @@ describe('Creator Cards API', () => {
 
     expect(response.statusCode).to.equal(400);
     expect(response.data.status).to.equal('error');
+    expect(response.data.errors).to.not.have.property('__$app_first_message');
   });
 });
